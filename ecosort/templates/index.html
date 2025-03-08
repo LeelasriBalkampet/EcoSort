@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waste Classification System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto py-10 px-4">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-green-600">EcoSort -AI Waste Classification System</h1>
+            <p class="text-gray-600 mt-2">Upload an image or enter a description of your waste item</p>
+            <!-- Inspirational Quote -->
+            <div class="mt-4 p-4 bg-green-50 rounded-lg max-w-lg mx-auto">
+                <p id="quote" class="text-green-800 italic text-sm">
+                    <!-- Quote will be inserted here -->
+                    {{ quote }}
+                </p>
+            </div>
+        </header>
+
+        <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+            <!-- Tab navigation -->
+            <div class="flex border-b mb-6">
+                <button id="text-tab" class="tab-btn py-2 px-4 text-green-600 border-b-2 border-green-600 font-medium">
+                    Text Description
+                </button>
+                <button id="image-tab" class="tab-btn py-2 px-4 text-gray-500 font-medium">
+                    Image Upload
+                </button>
+            </div>
+
+            <!-- Text input section -->
+            <div id="text-section">
+                <div class="mb-4">
+                    <label for="waste-input" class="block text-sm font-medium text-gray-700 mb-2">Waste Description</label>
+                    <input 
+                        type="text" 
+                        id="waste-input" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="e.g., plastic water bottle, banana peel">
+                </div>
+                
+                <button 
+                    id="classify-text-btn"
+                    class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300">
+                    Classify Waste
+                </button>
+            </div>
+
+            <!-- Image upload section -->
+            <div id="image-section" class="hidden">
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="mb-4">
+                        <label for="image-upload" class="block text-sm font-medium text-gray-700 mb-2">Upload Waste Image</label>
+                        <div class="flex items-center justify-center w-full">
+                            <label class="flex flex-col w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                                <div id="drop-area" class="flex flex-col items-center justify-center pt-7">
+                                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                    </svg>
+                                    <p id="file-name" class="pt-1 text-sm text-gray-500">Drag & drop or click to select</p>
+                                </div>
+                                <input id="image-upload" type="file" class="hidden" accept="image/*" />
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button 
+                        id="classify-image-btn"
+                        class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        disabled>
+                        Classify
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results section -->
+            <div id="result-section" class="mt-6 hidden">
+                <div class="border-t pt-4">
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Classification Result</h3>
+                    
+                    <!-- Result image (only shown for image uploads) -->
+                    <div id="result-image-container" class="mb-4 hidden">
+                        <img id="result-image" src="" alt="Classified waste" class="w-full h-40 object-contain rounded-lg border">
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <div id="category-badge" class="px-3 py-1 rounded-full text-sm font-medium mr-2"></div>
+                        <span id="confidence" class="text-sm text-gray-500"></span>
+                    </div>
+                    
+                    <!-- Disposal Recommendation -->
+                    <div class="mt-3">
+                        <h4 class="text-sm font-medium text-gray-700">How to Dispose:</h4>
+                        <p id="recommendation" class="text-sm text-gray-600"></p>
+                    </div>
+                    
+                    <!-- Recycling Contact Information -->
+                    <div class="mt-3">
+                        <h4 class="text-sm font-medium text-gray-700">Recycling Contact:</h4>
+                        <p id="recycling-contact" class="text-sm text-gray-600"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="error-message" class="mt-4 text-red-500 text-sm hidden"></div>
+            <div id="loading-indicator" class="mt-4 text-center hidden">
+                <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                <span class="ml-2 text-sm text-gray-600">Processing...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Elements
+            const textTab = document.getElementById('text-tab');
+            const imageTab = document.getElementById('image-tab');
+            const textSection = document.getElementById('text-section');
+            const imageSection = document.getElementById('image-section');
+            const wasteInput = document.getElementById('waste-input');
+            const classifyTextBtn = document.getElementById('classify-text-btn');
+            const classifyImageBtn = document.getElementById('classify-image-btn');
+            const resultSection = document.getElementById('result-section');
+            const categoryBadge = document.getElementById('category-badge');
+            const confidenceEl = document.getElementById('confidence');
+            const recommendationEl = document.getElementById('recommendation');
+            const recyclingContactEl = document.getElementById('recycling-contact');
+            const errorMessageEl = document.getElementById('error-message');
+            const resultImageContainer = document.getElementById('result-image-container');
+            const resultImage = document.getElementById('result-image');
+            const imageUpload = document.getElementById('image-upload');
+            const dropArea = document.getElementById('drop-area');
+            const fileName = document.getElementById('file-name');
+            const loadingIndicator = document.getElementById('loading-indicator');
+
+            // Tab switching
+            textTab.addEventListener('click', () => {
+                textTab.classList.add('text-green-600', 'border-b-2', 'border-green-600');
+                imageTab.classList.remove('text-green-600', 'border-b-2', 'border-green-600');
+                imageTab.classList.add('text-gray-500');
+                textSection.classList.remove('hidden');
+                imageSection.classList.add('hidden');
+                resetResults();
+            });
+
+            imageTab.addEventListener('click', () => {
+                imageTab.classList.add('text-green-600', 'border-b-2', 'border-green-600');
+                textTab.classList.remove('text-green-600', 'border-b-2', 'border-green-600');
+                textTab.classList.add('text-gray-500');
+                imageSection.classList.remove('hidden');
+                textSection.classList.add('hidden');
+                resetResults();
+            });
+
+            // Image upload handling
+            imageUpload.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    fileName.textContent = file.name;
+                    classifyImageBtn.disabled = false;
+                }
+            });
+
+            // Drag and drop functionality
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight() {
+                dropArea.classList.add('bg-gray-100');
+            }
+
+            function unhighlight() {
+                dropArea.classList.remove('bg-gray-100');
+            }
+
+            dropArea.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const file = dt.files[0];
+                imageUpload.files = dt.files;
+                
+                if (file) {
+                    fileName.textContent = file.name;
+                    classifyImageBtn.disabled = false;
+                }
+            });
+
+            // Badge colors based on waste category
+            const badgeColors = {
+                "Recyclable - Paper": "bg-blue-100 text-blue-800",
+                "Recyclable - Plastic": "bg-blue-100 text-blue-800",
+                "Recyclable - Glass": "bg-blue-100 text-blue-800",
+                "Recyclable - Metal": "bg-blue-100 text-blue-800",
+                "Compostable": "bg-green-100 text-green-800",
+                "Hazardous Waste": "bg-red-100 text-red-800",
+                "Non-Recyclable": "bg-yellow-100 text-yellow-800",
+                "General Waste": "bg-gray-100 text-gray-800"
+            };
+
+            // Text classification
+            classifyTextBtn.addEventListener('click', async () => {
+                const description = wasteInput.value.trim();
+                
+                if (!description) {
+                    showError("Please enter a waste description");
+                    return;
+                }
+
+                resetResults();
+                showLoading(true);
+
+                try {
+                    const response = await fetch('/classify', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ description }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Classification failed');
+                    }
+
+                    const result = await response.json();
+                    displayResult(result, false);
+                } catch (error) {
+                    showError("An error occurred during classification. Please try again.");
+                    console.error(error);
+                } finally {
+                    showLoading(false);
+                }
+            });
+
+            // Image classification
+            classifyImageBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                
+                if (!imageUpload.files[0]) {
+                    showError("Please select an image");
+                    return;
+                }
+
+                resetResults();
+                showLoading(true);
+
+                const formData = new FormData();
+                formData.append('file', imageUpload.files[0]);
+
+                try {
+                    const response = await fetch('/classify', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Classification failed');
+                    }
+
+                    const result = await response.json();
+                    displayResult(result, true);
+                } catch (error) {
+                    showError("An error occurred during classification. Please try again.");
+                    console.error(error);
+                } finally {
+                    showLoading(false);
+                }
+            });
+
+            // Display result function
+            function displayResult(result, isImage) {
+                categoryBadge.textContent = result.category;
+                categoryBadge.className = `px-3 py-1 rounded-full text-sm font-medium mr-2 ${badgeColors[result.category] || 'bg-gray-100 text-gray-800'}`;
+                
+                confidenceEl.textContent = `Confidence: ${Math.round(result.confidence * 100)}%`;
+                recommendationEl.textContent = result.recommendation || '';
+                recyclingContactEl.textContent = result.recycling_contact || '';
+                
+                if (isImage && result.image_url) {
+                    resultImage.src = result.image_url;
+                    resultImageContainer.classList.remove('hidden');
+                } else {
+                    resultImageContainer.classList.add('hidden');
+                }
+                
+                resultSection.classList.remove('hidden');
+            }
+
+            // Helper functions
+            function resetResults() {
+                errorMessageEl.classList.add('hidden');
+                resultSection.classList.add('hidden');
+            }
+
+            function showError(message) {
+                errorMessageEl.textContent = message;
+                errorMessageEl.classList.remove('hidden');
+            }
+
+            function showLoading(isLoading) {
+                if (isLoading) {
+                    loadingIndicator.classList.remove('hidden');
+                    classifyTextBtn.disabled = true;
+                    classifyImageBtn.disabled = true;
+                } else {
+                    loadingIndicator.classList.add('hidden');
+                    classifyTextBtn.disabled = false;
+                    classifyImageBtn.disabled = imageUpload.files.length === 0;
+                }
+            }
+
+            // Allow Enter key to trigger classification
+            wasteInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    classifyTextBtn.click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
